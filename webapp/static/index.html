@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Lingopie Viral Shorts</title>
+<style>
+  :root{--accent:#FF8243;--bg:#0d0b12;--card:#17131d;--ink:#f4f2f7;--muted:#9a95a6;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:radial-gradient(90% 60% at 50% 0%,rgba(255,130,67,0.14),transparent 60%),var(--bg);color:var(--ink);min-height:100vh;padding:40px 20px;}
+  .wrap{max-width:860px;margin:0 auto;}
+  h1{font-size:34px;letter-spacing:-0.5px;} h1 span{color:var(--accent);}
+  .sub{color:var(--muted);margin:8px 0 26px;font-size:16px;}
+  .card{background:var(--card);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:26px;margin-bottom:20px;}
+  .drop{border:2px dashed rgba(255,130,67,0.5);border-radius:16px;padding:44px 20px;text-align:center;cursor:pointer;transition:.15s;background:rgba(255,130,67,0.04);}
+  .drop.over{background:rgba(255,130,67,0.12);border-color:var(--accent);} .drop b{color:var(--accent);}
+  .drop .file{margin-top:10px;color:var(--ink);font-weight:600;}
+  .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:18px;}
+  label{color:var(--muted);font-size:14px;}
+  select,button{font:inherit;border-radius:12px;border:1px solid rgba(255,255,255,0.12);}
+  select{background:#0f0d15;color:var(--ink);padding:12px 14px;}
+  button.go{margin-left:auto;background:var(--accent);color:#26140a;font-weight:800;padding:14px 34px;border:none;cursor:pointer;box-shadow:0 12px 30px rgba(255,130,67,0.35);}
+  button.go:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;}
+  .log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:#b8b2c4;background:#0b0910;border-radius:12px;padding:16px;max-height:260px;overflow:auto;white-space:pre-wrap;line-height:1.5;}
+  .status{display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:14px;}
+  .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite;}
+  .dot.done{background:#37d67a;animation:none;} .dot.error{background:#ff5470;animation:none;}
+  @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+  .vid{background:#0f0d15;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);max-width:300px;margin-top:18px;}
+  .vid video{width:100%;display:block;background:#000;aspect-ratio:9/16;}
+  .vid a{display:block;text-align:center;padding:12px;color:var(--accent);text-decoration:none;font-weight:700;}
+  .hide{display:none;} .note{color:var(--muted);font-size:13px;margin-top:14px;}
+  .styles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;}
+  .st{border:2px solid rgba(255,255,255,0.12);border-radius:14px;padding:16px;cursor:pointer;background:#0f0d15;}
+  .st.sel{border-color:var(--accent);background:rgba(255,130,67,0.08);}
+  .st b{display:block;font-size:16px;} .st span{color:var(--muted);font-size:13px;}
+</style></head>
+<body><div class="wrap">
+  <h1>Lingopie <span>Viral Shorts</span></h1>
+  <div class="sub">Drop a Spanish drama clip. It finds a gripping scene, teaches 3 beginner words with a tap-to-reveal bubble, adds a voiced hook + CTA, and gives you the finished 9:16 short.</div>
+
+  <div class="card">
+    <div id="drop" class="drop">
+      <div>Drag a video here, or <b>click to choose</b></div>
+      <div class="file" id="fileName"></div>
+      <input id="file" type="file" accept="video/*" class="hide"/>
+    </div>
+
+    <div class="styles" id="styles">
+      <div class="st sel" data-v="s2"><b>POV hook</b><span>“POV: you learn Spanish from telenovelas”</span></div>
+      <div class="st" data-v="s3"><b>Challenge</b><span>“Can you catch 3 Spanish words?”</span></div>
+      <div class="st" data-v="s4"><b>Word counter</b><span>0/3 → 3/3 + “you learned 3 words”</span></div>
+    </div>
+
+    <div class="row">
+      <label>Voice</label><select id="voice"></select>
+      <label>Language</label>
+      <select id="lang"><option value="es">Spanish</option><option value="fr">French</option><option value="pt">Portuguese</option><option value="it">Italian</option><option value="de">German</option></select>
+      <button id="go" class="go" disabled>Generate</button>
+    </div>
+    <div class="note">First run downloads the speech model + renderer, so it can take a few minutes. Keep this tab open.</div>
+  </div>
+
+  <div id="panel" class="card hide">
+    <div class="status"><span id="dot" class="dot"></span><span id="statusText">Starting…</span></div>
+    <div id="log" class="log"></div>
+    <div id="results"></div>
+  </div>
+
+<script>
+const $=s=>document.querySelector(s);
+const drop=$('#drop'),file=$('#file'),go=$('#go'),fileName=$('#fileName');
+let chosen=null, style='s2';
+drop.onclick=()=>file.click(); file.onchange=()=>pick(file.files[0]);
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) pick(ev.dataTransfer.files[0]); });
+function pick(f){ if(!f) return; chosen=f; fileName.textContent=f.name; go.disabled=false; }
+document.querySelectorAll('.st').forEach(el=>el.onclick=()=>{
+  document.querySelectorAll('.st').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel'); style=el.dataset.v;
+});
+fetch('/api/voices').then(r=>r.json()).then(d=>{
+  $('#voice').innerHTML=(d.voices||[]).map(v=>`<option value="${v}">${v}</option>`).join('');
+});
+go.onclick=async()=>{
+  if(!chosen) return;
+  go.disabled=true; $('#panel').classList.remove('hide'); $('#results').innerHTML=''; $('#log').textContent='';
+  setStatus('running','Uploading…');
+  const fd=new FormData();
+  fd.append('video',chosen); fd.append('style',style); fd.append('language',$('#lang').value); fd.append('voice',$('#voice').value);
+  let r; try{ r=await (await fetch('/api/generate',{method:'POST',body:fd})).json(); }
+  catch(e){ return setStatus('error','Upload failed'); }
+  poll(r.job_id);
+};
+async function poll(id){
+  try{
+    const s=await (await fetch('/api/status/'+id)).json();
+    $('#log').textContent=(s.log||[]).join('\n'); $('#log').scrollTop=1e9;
+    if(s.status==='done'){ setStatus('done','Done — download your short:'); show(id,s.outputs); go.disabled=false; return; }
+    if(s.status==='error'){ setStatus('error', s.error||'Something went wrong'); go.disabled=false; return; }
+    setStatus('running','Working… (transcribe → scene → cut → voice → render → mix)');
+  }catch(e){ setStatus('error','Lost connection'); go.disabled=false; return; }
+  setTimeout(()=>poll(id),3000);
+}
+function setStatus(k,t){ $('#dot').className='dot'+(k==='done'?' done':k==='error'?' error':''); $('#statusText').textContent=t; }
+function show(id,names){
+  $('#results').innerHTML=(names||[]).map(n=>{
+    const u='/api/download/'+id+'/'+encodeURIComponent(n);
+    return `<div class="vid"><video src="${u}" controls preload="metadata"></video><a href="${u}" download>⬇ ${n}</a></div>`;
+  }).join('');
+}
+</script>
+</div></body></html>
