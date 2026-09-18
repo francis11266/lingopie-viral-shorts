@@ -1,0 +1,9 @@
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.env
+webapp_jobs/
+output/
+.smoketest/
+*.16k.wav
